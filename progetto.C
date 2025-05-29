@@ -32,11 +32,12 @@ void SaveCanvasToFolder(TCanvas* canvas, const TString& folder, const TString& n
     std::cout << "Saved " << filename << "\n";
 }
 
+// Planes height [cm]
 const double ytop = 0.51;
 const double ymesh = 0.01;
 const double ybottom = 0.0;
 
-// Dimensions of the sensor 
+// Dimensions of the sensor [cm]
 const double xmin = -0.15; double xmax = 0.15;
 const double zmin = 0.; double zmax = 0.3;  
 
@@ -96,21 +97,21 @@ int main(int argc, char * argv[]) {
   track.SetEnergy(17.e9); // 17 GeV
   track.SetSensor(&sensor);
 
+  // View for drift lines
+  ViewDrift driftView;
+
   // Avalanche for electrons
   AvalancheMicroscopic avalanche;
   avalanche.SetSensor(&sensor);
   avalanche.EnableMagneticField(true);
   avalanche.EnableSignalCalculation(true);
+  avalanche.EnablePlotting(&driftView);
 
   // Drift for ions
   AvalancheMC drift;
   drift.SetSensor(&sensor);
   drift.SetDistanceSteps(0.00001); // 0.1 um
   drift.EnableSignalCalculation(true);
-
-  // View for drift lines
-  ViewDrift driftView;
-  avalanche.EnablePlotting(&driftView);
   drift.EnablePlotting(&driftView);
 
   // Set time window and number of bins
@@ -222,7 +223,7 @@ int main(int argc, char * argv[]) {
             << double(nBF) / double(nTotal) << "\n";
 
 
-  // Plotting------------------------------------------------
+  // Drift Plotting------------------------------------------------------------------
   constexpr bool PlotDrift = true;
   if (PlotDrift) {
     // Zoomed area
@@ -252,7 +253,7 @@ int main(int argc, char * argv[]) {
   }
 
 
-  // Signal------------------------------------------------------------------
+  // Signal Plotting------------------------------------------------------------------
   constexpr bool PlotSignal = true;
   if (PlotSignal){
       // Canvases for signals
@@ -279,55 +280,55 @@ int main(int argc, char * argv[]) {
   constexpr bool PlotSignal2 = true;
   if (PlotSignal2) {
 
-  // Create vectors for time and signals
-  std::vector<double> times(nBins);
-  std::vector<double> signal1(nBins);
-  std::vector<double> signal2(nBins);
-  std::vector<double> signal3(nBins);
+    // Create vectors for time and signals
+    std::vector<double> times(nBins);
+    std::vector<double> signal1(nBins);
+    std::vector<double> signal2(nBins);
+    std::vector<double> signal3(nBins);
 
-  // Fill time vector and get signals
-  for (unsigned int i = 0; i < nBins; ++i) {
-    times[i] = tStart + i * tStep;
-    signal1[i] = sensor.GetSignal("strip1", i);
-    signal2[i] = sensor.GetSignal("strip2", i);
-    signal3[i] = sensor.GetSignal("strip3", i);
-  }
+    // Fill time vector and get signals
+    for (unsigned int i = 0; i < nBins; ++i) {
+      times[i] = tStart + i * tStep;
+      signal1[i] = sensor.GetSignal("strip1", i);
+      signal2[i] = sensor.GetSignal("strip2", i);
+      signal3[i] = sensor.GetSignal("strip3", i);
+    }
 
-  // Create a canvas to visualize the signals
-  TCanvas* cSignals = new TCanvas("cSignals", "Signals", 1200, 900);
-  cSignals->Divide(1, 3);
+    // Create a canvas to visualize the signals
+    TCanvas* cSignals = new TCanvas("cSignals", "Signals", 1200, 900);
+    cSignals->Divide(1, 3);
 
-  // Create histograms
-  TH1F* hSignal1 = new TH1F("hSignal1", "Signal on Strip 1;Time [ns];Signal [fC]", nBins, tStart, tEnd);
-  TH1F* hSignal2 = new TH1F("hSignal2", "Signal on Strip 2;Time [ns];Signal [fC]", nBins, tStart, tEnd);
-  TH1F* hSignal3 = new TH1F("hSignal3", "Signal on Strip 3;Time [ns];Signal [fC]", nBins, tStart, tEnd);
+    // Create histograms
+    TH1F* hSignal1 = new TH1F("hSignal1", "Signal on Strip 1;Time [ns];Signal [fC]", nBins, tStart, tEnd);
+    TH1F* hSignal2 = new TH1F("hSignal2", "Signal on Strip 2;Time [ns];Signal [fC]", nBins, tStart, tEnd);
+    TH1F* hSignal3 = new TH1F("hSignal3", "Signal on Strip 3;Time [ns];Signal [fC]", nBins, tStart, tEnd);
 
-  // Fill histograms
-  for (unsigned int i = 0; i < nBins; ++i) {
-    hSignal1->SetBinContent(i + 1, signal1[i]);
-    hSignal2->SetBinContent(i + 1, signal2[i]);
-    hSignal3->SetBinContent(i + 1, signal3[i]);
-  }
+    // Fill histograms
+    for (unsigned int i = 0; i < nBins; ++i) {
+      hSignal1->SetBinContent(i + 1, signal1[i]);
+      hSignal2->SetBinContent(i + 1, signal2[i]);
+      hSignal3->SetBinContent(i + 1, signal3[i]);
+    }
 
-  // Draw histograms
-  cSignals->cd(1);
-  hSignal1->Draw();
-  gPad->SetGridx();
-  gPad->SetGridy();
+    // Draw histograms
+    cSignals->cd(1);
+    hSignal1->Draw();
+    gPad->SetGridx();
+    gPad->SetGridy();
 
-  cSignals->cd(2);
-  hSignal2->Draw();
-  gPad->SetGridx();
-  gPad->SetGridy();
+    cSignals->cd(2);
+    hSignal2->Draw();
+    gPad->SetGridx();
+    gPad->SetGridy();
 
-  cSignals->cd(3);
-  hSignal3->Draw();
-  gPad->SetGridx();
-  gPad->SetGridy();
+    cSignals->cd(3);
+    hSignal3->Draw();
+    gPad->SetGridx();
+    gPad->SetGridy();
 
-  cSignals->Update();
-  // Save the canvas as a PNG file
-  SaveCanvasToFolder(cSignals, "plots", "signals");
+    cSignals->Update();
+    // Save the canvas as a PNG file
+    SaveCanvasToFolder(cSignals, "plots", "signals");
   }
 
   /* Alternative signal plotting with ViewSignal
