@@ -6,6 +6,8 @@
 #include <TString.h>
 #include <TH1F.h>
 #include <TSystem.h>
+#include <TROOT.h>
+
 
 #include "Garfield/AvalancheMicroscopic.hh"
 #include "Garfield/AvalancheMC.hh"
@@ -42,6 +44,7 @@ int main(int argc, char * argv[]) {
   // Setup------------------------------------------------------------------
   // Initialize ROOT application
   TApplication app("app", &argc, argv);
+  gROOT->SetBatch(kTRUE);
 
   // Gas
   MediumMagboltz gas("ar", 80., "co2", 20.);
@@ -69,12 +72,12 @@ int main(int argc, char * argv[]) {
   ampRegion.AddPlaneY(ybottom, 0, "bottom");  // Bottom plane
 
   // Strips in the amplification region
-  ampRegion.AddStripOnPlaneY('x', ybottom, -0.15, -0.06, "strip1");
-  ampRegion.AddStripOnPlaneY('x', ybottom, -0.045, 0.045, "strip2");
-  ampRegion.AddStripOnPlaneY('x', ybottom, 0.06, 0.15, "strip3");
-  ampRegion.AddReadout("strip1");
-  ampRegion.AddReadout("strip2");
-  ampRegion.AddReadout("strip3");
+  ampRegion.AddStripOnPlaneY('z', ybottom, -0.15, -0.06, "strip1", 0.015);
+  ampRegion.AddStripOnPlaneY('z', ybottom, -0.045, 0.045, "strip2", 0.015);
+  ampRegion.AddStripOnPlaneY('z', ybottom, 0.06, 0.15, "strip3", 0.015);
+  // ampRegion.AddReadout("strip1");
+  // ampRegion.AddReadout("strip2");
+  // ampRegion.AddReadout("strip3");
 
   // Sensor
   Sensor sensor;
@@ -115,6 +118,25 @@ int main(int argc, char * argv[]) {
   const double tStart = 0.; const double tStep = 0.05; const double tEnd = 400; // ns
   const unsigned int nBins = (tEnd-tStart)/tStep;
   sensor.SetTimeWindow(tStart, tStep, nBins);
+
+  /* Signal views
+  ViewSignal *signalView = new ViewSignal(&sensor);
+  TCanvas *cSignal = new TCanvas("cSignal", "", 600, 600);
+  signalView->SetCanvas(cSignal);*/
+
+  // Charge view
+  ViewSignal *chargeView1 = new ViewSignal(&sensor);
+  TCanvas *cCharge1 = new TCanvas("cCharge1", "", 600, 600);
+  chargeView1->SetCanvas(cCharge1);
+
+  ViewSignal *chargeView2 = new ViewSignal(&sensor);
+  TCanvas *cCharge2 = new TCanvas("cCharge2", "", 600, 600);
+  chargeView2->SetCanvas(cCharge2);
+
+  ViewSignal *chargeView3 = new ViewSignal(&sensor);
+  TCanvas *cCharge3 = new TCanvas("cCharge3", "", 600, 600);
+  chargeView3->SetCanvas(cCharge3);
+
 
   // Drift------------------------------------------------------------------
   // Set starting point
@@ -245,6 +267,7 @@ int main(int argc, char * argv[]) {
       sensor.PlotSignal("strip1", cSignal1);
       sensor.PlotSignal("strip2", cSignal2);
       sensor.PlotSignal("strip3", cSignal3);
+
       // Update and save the canvases
       cSignal1->Update(); SaveCanvasToFolder(cSignal1, "plots", "signal1");
       cSignal2->Update(); SaveCanvasToFolder(cSignal2, "plots", "signal2");
@@ -306,6 +329,40 @@ int main(int argc, char * argv[]) {
   // Save the canvas as a PNG file
   SaveCanvasToFolder(cSignals, "plots", "signals");
   }
+
+  /* Alternative signal plotting with ViewSignal
+  signalView->PlotSignal("strip1");
+  cSignal->Update();
+  gSystem->ProcessEvents();
+
+  sensor.ExportSignal("strip1", "signal");*/
+  // Plot induced charge
+  
+  // Charge plotting
+  sensor.IntegrateSignal("strip1");
+  chargeView1->PlotSignal("strip1");
+  cCharge1->Update();
+  gSystem->ProcessEvents();
+  sensor.ExportSignal("strip1", "charge1");
+
+  sensor.IntegrateSignal("strip2");
+  chargeView2->PlotSignal("strip2");
+  cCharge2->Update();
+  gSystem->ProcessEvents();
+  sensor.ExportSignal("strip2", "charge2");
+
+  sensor.IntegrateSignal("strip3");
+  chargeView3->PlotSignal("strip3");
+  cCharge3->Update();
+  gSystem->ProcessEvents();
+  sensor.ExportSignal("strip3", "charge3");
+
+  //SaveCanvasToFolder(cSignal, "plots", "signal");
+
+  SaveCanvasToFolder(cCharge1, "plots", "charge1");
+  SaveCanvasToFolder(cCharge2, "plots", "charge2");
+  SaveCanvasToFolder(cCharge3, "plots", "charge3");
+
   // Run the ROOT event loop
   app.Run(kTRUE);
 }
