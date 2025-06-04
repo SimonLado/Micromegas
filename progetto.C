@@ -1,5 +1,7 @@
 #include <cstdlib>
 #include <iostream>
+#include <vector>
+#include <chrono>
 
 #include <TApplication.h>
 #include <TCanvas.h>
@@ -7,7 +9,6 @@
 #include <TH1F.h>
 #include <TSystem.h>
 #include <TROOT.h>
-
 
 #include "Garfield/AvalancheMicroscopic.hh"
 #include "Garfield/AvalancheMC.hh"
@@ -76,9 +77,9 @@ int main(int argc, char * argv[]) {
   ampRegion.AddStripOnPlaneY('z', ybottom, -0.15, -0.06, "strip1", 0.015);
   ampRegion.AddStripOnPlaneY('z', ybottom, -0.045, 0.045, "strip2", 0.015);
   ampRegion.AddStripOnPlaneY('z', ybottom, 0.06, 0.15, "strip3", 0.015);
-  // ampRegion.AddReadout("strip1");
-  // ampRegion.AddReadout("strip2");
-  // ampRegion.AddReadout("strip3");
+  const double x1 = -(0.15 + 0.06)/2; // Center of strip1
+  const double x2 = 0.0;  // Center of strip2
+  const double x3 = -x1;  // Center of strip3
 
   // Sensor
   Sensor sensor;
@@ -116,14 +117,9 @@ int main(int argc, char * argv[]) {
 
   // Set time window and number of bins
   sensor.ClearSignal();
-  const double tStart = 0.; const double tStep = 0.05; const double tEnd = 400; // ns
+  const double tStart = 0.; const double tStep = 0.01; const double tEnd = 400; // ns
   const unsigned int nBins = (tEnd-tStart)/tStep;
   sensor.SetTimeWindow(tStart, tStep, nBins);
-
-  /* Signal views
-  ViewSignal *signalView = new ViewSignal(&sensor);
-  TCanvas *cSignal = new TCanvas("cSignal", "", 600, 600);
-  signalView->SetCanvas(cSignal);*/
 
   // Charge view
   ViewSignal *chargeView1 = new ViewSignal(&sensor);
@@ -140,10 +136,13 @@ int main(int argc, char * argv[]) {
 
 
   // Drift------------------------------------------------------------------
-  // Set starting point
-  // Randomize the starting point
-  const double edge = 0.1*(xmax-xmin);
-  const double x0 = xmin+edge+RndmUniform()*(xmax-xmin-2*edge);
+  // Set random starting point
+  std::vector<double> centers = {x1, x2, x3}; // Vector of centers for the strips
+  int rnd = static_cast<int>(RndmUniform() * centers.size());   // Generate a random index between 0 and vec.size()-1
+  
+  //const double edge = 0.1*(xmax-xmin);
+  //const double x0 = xmin+edge+RndmUniform()*(xmax-xmin-2*edge);
+  const double x0 = centers[rnd]; // Random x0 from the centers vector
   const double y0 = ytop;
   const double z0 = zmin+0.5*(zmax-zmin);
   const double t0 = 0.0;
@@ -154,9 +153,13 @@ int main(int argc, char * argv[]) {
   track.DisableDeltaElectronTransport();
   track.NewTrack(x0, y0, z0, t0, 0.0, -1.0, 0.0);
   
-  unsigned int nTotal = 0, nBF = 0;   // Total number of ions and back-flowing ions
+  unsigned int nTotal = 0, nBF = 0;         // Total number of ions and back-flowing ions
   double xc, yc, zc, tc, ec, extra; int ne; // Cluster properties
-  double xe, ye, ze, te, ee, dx, dy, dz; // Electron properties
+  double xe, ye, ze, te, ee, dx, dy, dz;    // Electron properties
+
+  // Loop initial time
+  auto loopStart = std::chrono::high_resolution_clock::now();
+
 
   // Loop over the clusters
   for (const auto& cluster : track.GetClusters()) {
@@ -222,6 +225,12 @@ int main(int argc, char * argv[]) {
   std::cout << "Fraction of back-flowing ions: " 
             << double(nBF) / double(nTotal) << "\n";
 
+  // Loop final time
+  auto loopEnd = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> loopDuration = loopEnd - loopStart;
+
+  // Plot initial time 
+  auto plotStart = std::chrono::high_resolution_clock::now();
 
   // Drift Plotting------------------------------------------------------------------
   constexpr bool PlotDrift = true;
@@ -255,6 +264,7 @@ int main(int argc, char * argv[]) {
 
   // Signal Plotting------------------------------------------------------------------
   constexpr bool PlotSignal = true;
+  // Original plot with PlotSignal
   if (PlotSignal){
       // Canvases for signals
       TCanvas* cSignal1 = new TCanvas("cSignal1", "Signal1", 800, 600);
@@ -276,7 +286,7 @@ int main(int argc, char * argv[]) {
   }
   
 
-  // Alternative signal plotting
+  // Alternative signal plotting in 1 canvas with GetSignal
   constexpr bool PlotSignal2 = true;
   if (PlotSignal2) {
 
@@ -330,16 +340,8 @@ int main(int argc, char * argv[]) {
     // Save the canvas as a PNG file
     SaveCanvasToFolder(cSignals, "plots", "signals");
   }
-
-  /* Alternative signal plotting with ViewSignal
-  signalView->PlotSignal("strip1");
-  cSignal->Update();
-  gSystem->ProcessEvents();
-
-  sensor.ExportSignal("strip1", "signal");*/
-  // Plot induced charge
   
-  // Charge plotting
+  // Charge plotting with Integrate
   sensor.IntegrateSignal("strip1");
   chargeView1->PlotSignal("strip1");
   cCharge1->Update();
@@ -358,11 +360,23 @@ int main(int argc, char * argv[]) {
   gSystem->ProcessEvents();
   sensor.ExportSignal("strip3", "charge3");
 
-  //SaveCanvasToFolder(cSignal, "plots", "signal");
-
   SaveCanvasToFolder(cCharge1, "plots", "charge1");
   SaveCanvasToFolder(cCharge2, "plots", "charge2");
   SaveCanvasToFolder(cCharge3, "plots", "charge3");
+
+  // Plot final time
+  auto plotEnd = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> plotDuration = plotEnd - plotStart;
+
+  // Print execution times
+  std::cout << "Execution times:\n";
+  std::cout << "Principal loop execution time: " << loopDuration.count() << " seconds\n";
+  std::cout << "Plotting execution time: " << plotDuration.count() << " seconds\n";
+  
+  // Print total execution time
+  auto totalEnd = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> totalDuration = totalEnd - loopStart;
+  std::cout << "Total execution time: " << totalDuration.count() << " seconds\n";
 
   // Run the ROOT event loop
   app.Run(kTRUE);
