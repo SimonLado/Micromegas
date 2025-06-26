@@ -9,6 +9,8 @@
 #include <TH1F.h>
 #include <TSystem.h>
 #include <TROOT.h>
+#include <TFile.h>
+#include <TTree.h>
 
 #include "Garfield/AvalancheMicroscopic.hh"
 #include "Garfield/AvalancheMC.hh"
@@ -20,8 +22,8 @@
 #include "Garfield/ViewDrift.hh"
 #include "Garfield/ComponentAnalyticField.hh"
 #include "Garfield/TrackHeed.hh"
-#include "Garfield/DriftLineRKF.hh"
 #include "Garfield/ViewSignal.hh"
+#include "Garfield/RandomEngineRoot.hh"
 
 
 using namespace Garfield;
@@ -43,20 +45,71 @@ const double xmin = -0.15; double xmax = 0.15;
 const double zmin = 0.; double zmax = 0.3;  
 
 int main(int argc, char * argv[]) {
+  // Check command line arguments
+  if(argc<5)
+    {
+      fprintf(stderr,"Use %s DeltaV, rPenning, event, particle\n",argv[0]);
+      exit(1);
+  }
+  
+  // Read command line arguments and create branch variables
+  int DeltaV = atoi(argv[1]); // Voltage difference in V 
+  double rPenning = atof(argv[2]); // Penning transfer efficiency
+  int event = atoi(argv[3]); // Event number
+  std::string particle = argv[4]; // Particle type (muon or photon)
+  int nPrimaryElectrons = 0; // Number of primary electrons
+  int nFinalElectrons = 0; // Number of final electrons after the avalanche
+
+  // Check if the particle type is valid
+  if (particle != "muon" && particle != "photon") {
+    std::cerr << "Invalid particle type. Use 'muon' or 'photon'.\n";
+    return 1;
+  }
+
+  // Initialize random number generator
+  Garfield::RandomEngineRoot rndEngine;
+  rndEngine.SetSeed(event);
+
+  // Set the voltage values
+  int Vbottom = 0; // Voltage on the bottom plane in V 
+  int Vmesh = -DeltaV; // Voltage on the mesh in V
+  int Vtop = Vmesh - 250; // Voltage on the top plane in V
+
+  // Create output file name
+  TString deltaV = Form("%d", DeltaV); // Voltage difference
+  TString penning = Form("%.2f", rPenning); // Penning transfer efficiency
+  TString ev = Form("%d", event); // Event number
+  TString Particle = particle;
+  TString fileName = "plots/prog_"+Particle+"_"+deltaV+"V_"+penning+"_"+ev+".root";
+  TFile file(fileName, "RECREATE");
+  std::cout << "Particle: " << particle << "DeltaV" << deltaV << " V, Penning: " << penning << ", Event: " << event << "\n"
+            << "Output file: " << fileName << "\n";
+  
+  // TTree creation
+  TTree tree("tree", "tree");
+  tree.Branch("event", &event);
+  tree.Branch("particle", &particle);
+  tree.Branch("DeltaV", &DeltaV);
+  tree.Branch("rPenning", &rPenning);
+  tree.Branch("nPrimaryElectrons", &nPrimaryElectrons, "nPrimaryElectrons/I");
+  tree.Branch("nFinalElectrons", &nFinalElectrons, "nFinalElectrons/I");
+
   // Setup------------------------------------------------------------------
   // Initialize ROOT application
   TApplication app("app", &argc, argv);
   gROOT->SetBatch(kTRUE);
 
   // Gas
+  //MediumMagboltz gas("ar", 93., "co2", 5., "c4h10", 2.);
   MediumMagboltz gas("ar", 80., "co2", 20.);
   gas.SetTemperature(293.15);
   gas.SetPressure(760.);
   gas.Initialise(true);
   gas.LoadIonMobility("IonMobility_Ar+_Ar.txt");
+  //gas.LoadIonMobility("IonMobility_C8Hn+_iC4H10.txt");
 
   // Set the Penning transfer efficiency.
-  constexpr double rPenning = 0.51;
+  //constexpr double rPenning = 0.51;
   constexpr double lambdaPenning = 0.;
   gas.EnablePenningTransfer(rPenning, lambdaPenning, "ar");
 
@@ -64,14 +117,14 @@ int main(int argc, char * argv[]) {
   // Drift region (top to mesh)
   ComponentAnalyticField driftRegion;
   driftRegion.SetMedium(&gas);
-  driftRegion.AddPlaneY(ytop, -730, "top");     // Top plane
-  driftRegion.AddPlaneY(ymesh, -480, "mesh");   // Mesh plane
+  driftRegion.AddPlaneY(ytop, Vtop, "top");     // Top plane
+  driftRegion.AddPlaneY(ymesh, Vmesh, "mesh");   // Mesh plane
 
   // Amplification region (mesh to bottom)
   ComponentAnalyticField ampRegion;
   ampRegion.SetMedium(&gas);
-  ampRegion.AddPlaneY(ymesh, -480, "mesh");   // Mesh plane
-  ampRegion.AddPlaneY(ybottom, 0, "bottom");  // Bottom plane
+  ampRegion.AddPlaneY(ymesh, Vmesh, "mesh");   // Mesh plane
+  ampRegion.AddPlaneY(ybottom, Vbottom, "bottom");  // Bottom plane
 
   // Strips in the amplification region
   ampRegion.AddStripOnPlaneY('z', ybottom, -0.15, -0.06, "strip1", 0.015);
@@ -92,10 +145,16 @@ int main(int argc, char * argv[]) {
   sensor.AddElectrode(&ampRegion, "strip2");
   sensor.AddElectrode(&ampRegion, "strip3");
   
-  // Track
+  // Track muon/photon
   TrackHeed track;
-  track.SetParticle("muon");
-  track.SetEnergy(17.e9); // 17 GeV
+  track.SetParticle(particle);
+  if(particle == "muon") {
+    track.SetEnergy(17.e9); // 17 GeV
+  }else if(particle == "photon") {
+    const double p = 167. * RndmUniform();
+    const double egamma = p < 100. ? 5898.8 : p < 150. ? 5887.6 : 6490.4; // Energy of the photon
+    track.SetEnergy(egamma);
+  }
   track.SetSensor(&sensor);
 
   // View for drift lines
@@ -133,7 +192,14 @@ int main(int argc, char * argv[]) {
   ViewSignal *chargeView3 = new ViewSignal(&sensor);
   TCanvas *cCharge3 = new TCanvas("cCharge3", "", 600, 600);
   chargeView3->SetCanvas(cCharge3);
-
+  
+  // Other Canvas
+  TCanvas* c = nullptr;
+  TCanvas* czoom = nullptr;
+  TCanvas* cSignal1 = nullptr;
+  TCanvas* cSignal2 = nullptr;
+  TCanvas* cSignal3 = nullptr;
+  TCanvas* cSignals = nullptr;  
 
   // Drift------------------------------------------------------------------
   // Set random starting point
@@ -173,23 +239,24 @@ int main(int argc, char * argv[]) {
       xe = electron.x; ye = electron.y; ze = electron.z;
       te = electron.t; ee = electron.e;
       dx = electron.dx; dy = electron.dy; dz = electron.dz;
-      std::cout << "Electron at (" << xe << ", " << ye << ", " << ze << ") with "
+      std::cout << "    Electron at (" << xe << ", " << ye << ", " << ze << ") with "
       << ee << " eV.\n";
       avalanche.AvalancheElectron(xe, ye, ze, te, ee, dx, dy, dz);
 
       const auto& electrons = avalanche.GetElectrons();
 
       // 1st Avalanche size
-      int nel = 0, ni = 0;
-      avalanche.GetAvalancheSize(nel, ni);
-      std::cout << "1st Avalanche size: " << nel << " electrons, " << ni
+      int nel1 = 0, ni1 = 0;
+      avalanche.GetAvalancheSize(nel1, ni1);
+      std::cout << "    1st Avalanche size: " << nel1 << " electrons, " << ni1
                 << " ions.\n";
+      nPrimaryElectrons += nel1; // Count primary electrons
 
       // Loop over the electrons in the avalanche
       for (const auto& electron : avalanche.GetElectrons()) { 
         // Endpoint of the electrons
         const auto& endpoint = electron.path.back();
-        std::cout << "Electron endpoint: (" << endpoint.x << ", " << endpoint.y << ", " << endpoint.z << ")\n";
+        std::cout << "        Electron endpoint at mesh: (" << endpoint.x << ", " << endpoint.y << ", " << endpoint.z << ")\n";
         // Check if the electron is in the amplification region
         if (endpoint.y <= 0.01) {
           // Electron after the mesh
@@ -200,10 +267,11 @@ int main(int argc, char * argv[]) {
           avalanche.AvalancheElectron(xafter, yafter, zafter, tafter, eafter, dxafter, dyafter, dzafter);
 
           // 2nd Avalanche size
-          int nel1 = 0, ni1 = 0;
-          avalanche.GetAvalancheSize(nel1, ni1);
-          std::cout << "2nd Avalanche size: " << nel1 << " electrons, " << ni1
+          int nel2 = 0, ni2 = 0;
+          avalanche.GetAvalancheSize(nel2, ni2);
+          std::cout << "        2nd Avalanche size: " << nel2 << " electrons, " << ni2
                   << " ions.\n";
+          nFinalElectrons += nel2; // Count final electrons after the avalanche
 
           // Drift ions in the amplification region
           for (const auto& avalElectron : avalanche.GetElectrons()) {
@@ -224,7 +292,9 @@ int main(int argc, char * argv[]) {
   std::cout << "Number of back-flowing ions: " << nBF << std::endl;
   std::cout << "Fraction of back-flowing ions: " 
             << double(nBF) / double(nTotal) << "\n";
-
+  std::cout << "Number of primary electrons: " << nPrimaryElectrons << "\n";
+  std::cout << "Number of final electrons after the avalanche: " << nFinalElectrons << "\n";
+  
   // Loop final time
   auto loopEnd = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> loopDuration = loopEnd - loopStart;
@@ -239,7 +309,7 @@ int main(int argc, char * argv[]) {
     double xzoom_min = std::min(x0-0.05,xmin); double xzoom_max = std::max(x0+0.05, xmax);
   
     // Large area
-    TCanvas* c = new TCanvas("cDrift", "Electron drift", 800, 600);
+    c = new TCanvas("cDrift", "Drift", 800, 600);
     driftView.SetArea(xmin, ybottom, zmin, xmax, ytop, zmax);
     driftView.SetPlaneXY();
     driftView.SetCanvas(c);
@@ -247,7 +317,7 @@ int main(int argc, char * argv[]) {
     driftView.Plot(twod);
 
     // Zoomed area
-    TCanvas* czoom = new TCanvas("cDriftZoom", "Electron drift (zoomed)", 800, 600);
+    czoom = new TCanvas("cDriftZoom", "Drift (zoomed)", 800, 600);
     driftView.SetArea(xzoom_min, ybottom, zmin, xzoom_max, ymesh, zmax);
     driftView.SetPlaneXY();
     driftView.SetCanvas(czoom);
@@ -267,9 +337,9 @@ int main(int argc, char * argv[]) {
   // Original plot with PlotSignal
   if (PlotSignal){
       // Canvases for signals
-      TCanvas* cSignal1 = new TCanvas("cSignal1", "Signal1", 800, 600);
-      TCanvas* cSignal2 = new TCanvas("cSignal2", "Signal2", 800, 600);
-      TCanvas* cSignal3 = new TCanvas("cSignal3", "Signal3", 800, 600);
+      cSignal1 = new TCanvas("cSignal1", "Signal1", 800, 600);
+      cSignal2 = new TCanvas("cSignal2", "Signal2", 800, 600);
+      cSignal3 = new TCanvas("cSignal3", "Signal3", 800, 600);
 
       cSignal1->SetTitle("Signal on Strip 1;Time [ns];Signal [fC]");
       cSignal2->SetTitle("Signal on Strip 2;Time [ns];Signal [fC]");
@@ -305,7 +375,7 @@ int main(int argc, char * argv[]) {
     }
 
     // Create a canvas to visualize the signals
-    TCanvas* cSignals = new TCanvas("cSignals", "Signals", 1200, 900);
+    cSignals = new TCanvas("cSignals", "Signals", 1200, 900);
     cSignals->Divide(1, 3);
 
     // Create histograms
@@ -346,19 +416,19 @@ int main(int argc, char * argv[]) {
   chargeView1->PlotSignal("strip1");
   cCharge1->Update();
   gSystem->ProcessEvents();
-  sensor.ExportSignal("strip1", "charge1");
+  //sensor.ExportSignal("strip1", "charge1");
 
   sensor.IntegrateSignal("strip2");
   chargeView2->PlotSignal("strip2");
   cCharge2->Update();
   gSystem->ProcessEvents();
-  sensor.ExportSignal("strip2", "charge2");
+  //sensor.ExportSignal("strip2", "charge2");
 
   sensor.IntegrateSignal("strip3");
   chargeView3->PlotSignal("strip3");
   cCharge3->Update();
   gSystem->ProcessEvents();
-  sensor.ExportSignal("strip3", "charge3");
+  //sensor.ExportSignal("strip3", "charge3");
 
   SaveCanvasToFolder(cCharge1, "plots", "charge1");
   SaveCanvasToFolder(cCharge2, "plots", "charge2");
@@ -378,8 +448,20 @@ int main(int argc, char * argv[]) {
   std::chrono::duration<double> totalDuration = totalEnd - loopStart;
   std::cout << "Total execution time: " << totalDuration.count() << " seconds\n";
 
+  // Tree filling and file writing
+  file.cd();
+  tree.Fill();
+  tree.Write();
+  c->Write(); czoom->Write(); cSignals->Write();
+  cSignal1->Write(); cSignal2->Write(); cSignal3->Write();
+  cCharge1->Write(); cCharge2->Write(); cCharge3->Write();
+
+  file.Close();
+
   // Run the ROOT event loop
-  app.Run(kTRUE);
+  //app.Run(kTRUE);
+  app.Terminate();
+  return 0;
 }
 
 
@@ -442,30 +524,3 @@ int main(int argc, char * argv[]) {
   */
 
   /*
-for (const auto& electron : cluster.electrons) {
-  xe = electron.x; ye = electron.y; ze = electron.z;
-  te = electron.t; ee = electron.e;
-  dx = electron.dx; dy = electron.dy; dz = electron.dz;
-  std::cout << "Electron at (" << xe << ", " << ye << ", " << ze << ") with "
-  << ee << " eV.\n";
-  avalanche.AvalancheElectron(xe, ye, ze, te, ee, dx, dy, dz);
-
-  const auto& electrons = avalanche.GetElectrons();
-  const auto& endpoint = electrons.back().path.back();
-  std::cout << "Electron endpoint: (" << endpoint.x << ", " << endpoint.y << ", " << endpoint.z << ")\n";
-
-  int nel = 0, ni = 0;
-  avalanche.GetAvalancheSize(nel, ni);
-  std::cout << "Avalanche size: " << nel << " electrons, " << ni
-            << " ions.\n";
-
-  // Drift ions
-  for (const auto& electron : avalanche.GetElectrons()) {
-    const auto& p0 = electron.path[0];
-    drift.DriftIon(p0.x, p0.y, p0.z, p0.t);
-    ++nTotal;
-    const auto& endpoint = drift.GetIons().front().path.back();
-    if (endpoint.z > 0.002) ++nBF;
-  }
-}
-  */
