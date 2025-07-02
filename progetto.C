@@ -100,13 +100,13 @@ int main(int argc, char * argv[]) {
   gROOT->SetBatch(kTRUE);
 
   // Gas
-  //MediumMagboltz gas("ar", 93., "co2", 5., "c4h10", 2.);
-  MediumMagboltz gas("ar", 80., "co2", 20.);
+  MediumMagboltz gas("ar", 93., "co2", 5., "c4h10", 2.);
+  //MediumMagboltz gas("ar", 80., "co2", 20.);
   gas.SetTemperature(293.15);
   gas.SetPressure(760.);
   gas.Initialise(true);
   gas.LoadIonMobility("IonMobility_Ar+_Ar.txt");
-  //gas.LoadIonMobility("IonMobility_C8Hn+_iC4H10.txt");
+  gas.LoadIonMobility("IonMobility_C8Hn+_iC4H10.txt");
 
   // Set the Penning transfer efficiency.
   //constexpr double rPenning = 0.51;
@@ -524,3 +524,30 @@ int main(int argc, char * argv[]) {
   */
 
   /*
+for (const auto& electron : cluster.electrons) {
+  xe = electron.x; ye = electron.y; ze = electron.z;
+  te = electron.t; ee = electron.e;
+  dx = electron.dx; dy = electron.dy; dz = electron.dz;
+  std::cout << "Electron at (" << xe << ", " << ye << ", " << ze << ") with "
+  << ee << " eV.\n";
+  avalanche.AvalancheElectron(xe, ye, ze, te, ee, dx, dy, dz);
+
+  const auto& electrons = avalanche.GetElectrons();
+  const auto& endpoint = electrons.back().path.back();
+  std::cout << "Electron endpoint: (" << endpoint.x << ", " << endpoint.y << ", " << endpoint.z << ")\n";
+
+  int nel = 0, ni = 0;
+  avalanche.GetAvalancheSize(nel, ni);
+  std::cout << "Avalanche size: " << nel << " electrons, " << ni
+            << " ions.\n";
+
+  // Drift ions
+  for (const auto& electron : avalanche.GetElectrons()) {
+    const auto& p0 = electron.path[0];
+    drift.DriftIon(p0.x, p0.y, p0.z, p0.t);
+    ++nTotal;
+    const auto& endpoint = drift.GetIons().front().path.back();
+    if (endpoint.z > 0.002) ++nBF;
+  }
+}
+  */
