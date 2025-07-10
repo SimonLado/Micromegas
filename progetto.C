@@ -46,9 +46,8 @@ const double zmin = 0.; double zmax = 0.3;
 
 int main(int argc, char * argv[]) {
   // Check command line arguments
-  if(argc<5)
-    {
-      fprintf(stderr,"Use %s DeltaV, rPenning, event, particle\n",argv[0]);
+  if(argc<4){
+      fprintf(stderr,"Use %s DeltaV, rPenning, event\n",argv[0]);
       exit(1);
   }
   
@@ -56,15 +55,16 @@ int main(int argc, char * argv[]) {
   int DeltaV = atoi(argv[1]); // Voltage difference in V 
   double rPenning = atof(argv[2]); // Penning transfer efficiency
   int event = atoi(argv[3]); // Event number
-  std::string particle = argv[4]; // Particle type (muon or photon)
+  //std::string particle = argv[4]; // Particle type (muon or photon)
+  std::string particle = "muon"; // Fixed to muon for this example
   int nPrimaryElectrons = 0; // Number of primary electrons
   int nFinalElectrons = 0; // Number of final electrons after the avalanche
 
-  // Check if the particle type is valid
+  /* Check if the particle type is valid
   if (particle != "muon" && particle != "photon") {
     std::cerr << "Invalid particle type. Use 'muon' or 'photon'.\n";
     return 1;
-  }
+  }*/
 
   // Initialize random number generator
   Garfield::RandomEngineRoot rndEngine;
@@ -79,10 +79,10 @@ int main(int argc, char * argv[]) {
   TString deltaV = Form("%d", DeltaV); // Voltage difference
   TString penning = Form("%.2f", rPenning); // Penning transfer efficiency
   TString ev = Form("%d", event); // Event number
-  TString Particle = particle;
+  TString Particle = "muon"; // Particle type (fixed to muon for this example)
   TString fileName = "plots/prog_"+Particle+"_"+deltaV+"V_"+penning+"_"+ev+".root";
   TFile file(fileName, "RECREATE");
-  std::cout << "Particle: " << particle << "DeltaV" << deltaV << " V, Penning: " << penning << ", Event: " << event << "\n"
+  std::cout << "Particle: " << "muon" << " DeltaV: " << deltaV << " V, Penning: " << penning << ", Event: " << event << "\n"
             << "Output file: " << fileName << "\n";
   
   // TTree creation
@@ -106,7 +106,7 @@ int main(int argc, char * argv[]) {
   gas.SetPressure(760.);
   gas.Initialise(true);
   gas.LoadIonMobility("IonMobility_Ar+_Ar.txt");
-  gas.LoadIonMobility("IonMobility_C8Hn+_iC4H10.txt");
+  //gas.LoadIonMobility("IonMobility_C8Hn+_iC4H10.txt");
 
   // Set the Penning transfer efficiency.
   //constexpr double rPenning = 0.51;
@@ -125,6 +125,9 @@ int main(int argc, char * argv[]) {
   ampRegion.SetMedium(&gas);
   ampRegion.AddPlaneY(ymesh, Vmesh, "mesh");   // Mesh plane
   ampRegion.AddPlaneY(ybottom, Vbottom, "bottom");  // Bottom plane
+
+  std::cout << "Vtop: " << Vtop << " V, Vmesh: " << Vmesh << " V, Vbottom: " << Vbottom << " V\n" 
+            << "ytop: " << ytop << " cm, ymesh: " << ymesh << " cm, ybottom: " << ybottom << " cm\n";
 
   // Strips in the amplification region
   ampRegion.AddStripOnPlaneY('z', ybottom, -0.15, -0.06, "strip1", 0.015);
@@ -147,6 +150,9 @@ int main(int argc, char * argv[]) {
   
   // Track muon/photon
   TrackHeed track;
+  track.SetParticle("muon") ;
+  track.SetEnergy(17.e9); // 17 GeV for muon
+  /*
   track.SetParticle(particle);
   if(particle == "muon") {
     track.SetEnergy(17.e9); // 17 GeV
@@ -154,7 +160,7 @@ int main(int argc, char * argv[]) {
     const double p = 167. * RndmUniform();
     const double egamma = p < 100. ? 5898.8 : p < 150. ? 5887.6 : 6490.4; // Energy of the photon
     track.SetEnergy(egamma);
-  }
+  }*/
   track.SetSensor(&sensor);
 
   // View for drift lines
@@ -165,18 +171,18 @@ int main(int argc, char * argv[]) {
   avalanche.SetSensor(&sensor);
   avalanche.EnableMagneticField(true);
   avalanche.EnableSignalCalculation(true);
-  avalanche.EnablePlotting(&driftView);
+  //avalanche.EnablePlotting(&driftView);
 
   // Drift for ions
   AvalancheMC drift;
   drift.SetSensor(&sensor);
-  drift.SetDistanceSteps(0.00001); // 0.1 um
+  drift.SetDistanceSteps(2e-5); // original 0.00001 cm
   drift.EnableSignalCalculation(true);
-  drift.EnablePlotting(&driftView);
+  //drift.EnablePlotting(&driftView);
 
   // Set time window and number of bins
   sensor.ClearSignal();
-  const double tStart = 0.; const double tStep = 0.01; const double tEnd = 400; // ns
+  const double tStart = 0.; const double tStep = 0.05; const double tEnd = 400; // ns original step 0.01 ns
   const unsigned int nBins = (tEnd-tStart)/tStep;
   sensor.SetTimeWindow(tStart, tStep, nBins);
 
@@ -214,8 +220,8 @@ int main(int argc, char * argv[]) {
   const double t0 = 0.0;
 
   // Start a new track
-  track.EnableDebugging();
-  track.EnablePlotting(&driftView);
+  //track.EnableDebugging();
+  //track.EnablePlotting(&driftView);
   track.DisableDeltaElectronTransport();
   track.NewTrack(x0, y0, z0, t0, 0.0, -1.0, 0.0);
   
@@ -236,6 +242,12 @@ int main(int argc, char * argv[]) {
 
     // Loop over the electrons in the cluster
     for (const auto& electron : cluster.electrons) {
+      avalanche = AvalancheMicroscopic();
+      avalanche.SetSensor(&sensor);
+      avalanche.EnableMagneticField(true);
+      avalanche.EnableSignalCalculation(true);
+
+      // Set the electron properties
       xe = electron.x; ye = electron.y; ze = electron.z;
       te = electron.t; ee = electron.e;
       dx = electron.dx; dy = electron.dy; dz = electron.dz;
@@ -253,7 +265,7 @@ int main(int argc, char * argv[]) {
       nPrimaryElectrons += nel1; // Count primary electrons
 
       // Loop over the electrons in the avalanche
-      for (const auto& electron : avalanche.GetElectrons()) { 
+      for (const auto& electron : electrons) { 
         // Endpoint of the electrons
         const auto& endpoint = electron.path.back();
         std::cout << "        Electron endpoint at mesh: (" << endpoint.x << ", " << endpoint.y << ", " << endpoint.z << ")\n";
@@ -298,12 +310,12 @@ int main(int argc, char * argv[]) {
   // Loop final time
   auto loopEnd = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> loopDuration = loopEnd - loopStart;
-
+  
   // Plot initial time 
   auto plotStart = std::chrono::high_resolution_clock::now();
 
   // Drift Plotting------------------------------------------------------------------
-  constexpr bool PlotDrift = true;
+  constexpr bool PlotDrift = false;
   if (PlotDrift) {
     // Zoomed area
     double xzoom_min = std::min(x0-0.05,xmin); double xzoom_max = std::max(x0+0.05, xmax);
@@ -354,7 +366,6 @@ int main(int argc, char * argv[]) {
       cSignal2->Update(); SaveCanvasToFolder(cSignal2, "plots", "signal2");
       cSignal3->Update(); SaveCanvasToFolder(cSignal3, "plots", "signal3");
   }
-  
 
   // Alternative signal plotting in 1 canvas with GetSignal
   constexpr bool PlotSignal2 = true;
@@ -412,28 +423,31 @@ int main(int argc, char * argv[]) {
   }
   
   // Charge plotting with Integrate
-  sensor.IntegrateSignal("strip1");
-  chargeView1->PlotSignal("strip1");
-  cCharge1->Update();
-  gSystem->ProcessEvents();
-  //sensor.ExportSignal("strip1", "charge1");
+  constexpr bool PlotCharge = false;
+  if (PlotCharge) {
+    sensor.IntegrateSignal("strip1");
+    chargeView1->PlotSignal("strip1");
+    cCharge1->Update();
+    gSystem->ProcessEvents();
+    //sensor.ExportSignal("strip1", "charge1");
 
-  sensor.IntegrateSignal("strip2");
-  chargeView2->PlotSignal("strip2");
-  cCharge2->Update();
-  gSystem->ProcessEvents();
-  //sensor.ExportSignal("strip2", "charge2");
+    sensor.IntegrateSignal("strip2");
+    chargeView2->PlotSignal("strip2");
+    cCharge2->Update();
+    gSystem->ProcessEvents();
+    //sensor.ExportSignal("strip2", "charge2");
 
-  sensor.IntegrateSignal("strip3");
-  chargeView3->PlotSignal("strip3");
-  cCharge3->Update();
-  gSystem->ProcessEvents();
-  //sensor.ExportSignal("strip3", "charge3");
+    sensor.IntegrateSignal("strip3");
+    chargeView3->PlotSignal("strip3");
+    cCharge3->Update();
+    gSystem->ProcessEvents();
+    //sensor.ExportSignal("strip3", "charge3");
 
-  SaveCanvasToFolder(cCharge1, "plots", "charge1");
-  SaveCanvasToFolder(cCharge2, "plots", "charge2");
-  SaveCanvasToFolder(cCharge3, "plots", "charge3");
-
+    SaveCanvasToFolder(cCharge1, "plots", "charge1");
+    SaveCanvasToFolder(cCharge2, "plots", "charge2");
+    SaveCanvasToFolder(cCharge3, "plots", "charge3");
+  }
+  // End of plotting---------------------------------------------------------
   // Plot final time
   auto plotEnd = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> plotDuration = plotEnd - plotStart;
@@ -452,9 +466,10 @@ int main(int argc, char * argv[]) {
   file.cd();
   tree.Fill();
   tree.Write();
-  c->Write(); czoom->Write(); cSignals->Write();
+  //c->Write(); czoom->Write(); 
+  cSignals->Write();
   cSignal1->Write(); cSignal2->Write(); cSignal3->Write();
-  cCharge1->Write(); cCharge2->Write(); cCharge3->Write();
+  //cCharge1->Write(); cCharge2->Write(); cCharge3->Write();
 
   file.Close();
 
