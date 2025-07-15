@@ -52,13 +52,13 @@ int main(int argc, char * argv[]) {
   }
   
   // Read command line arguments and create branch variables
-  int DeltaV = atoi(argv[1]); // Voltage difference in V 
-  double rPenning = atof(argv[2]); // Penning transfer efficiency
-  int event = atoi(argv[3]); // Event number
+  int DeltaV = atoi(argv[1]);       // Voltage difference in V 
+  double rPenning = atof(argv[2]);  // Penning transfer efficiency
+  int event = atoi(argv[3]);        // Event number
   //std::string particle = argv[4]; // Particle type (muon or photon)
-  std::string particle = "muon"; // Fixed to muon for this example
-  int nPrimaryElectrons = 0; // Number of primary electrons
-  int nFinalElectrons = 0; // Number of final electrons after the avalanche
+  std::string particle = "muon";    // Fixed to muon for this example
+  int nPrimaryElectrons = 0;        // Number of primary electrons
+  int nFinalElectrons = 0;          // Number of final electrons after the avalanche
 
   /* Check if the particle type is valid
   if (particle != "muon" && particle != "photon") {
@@ -71,15 +71,15 @@ int main(int argc, char * argv[]) {
   rndEngine.SetSeed(event);
 
   // Set the voltage values
-  int Vbottom = 0; // Voltage on the bottom plane in V 
-  int Vmesh = -DeltaV; // Voltage on the mesh in V
+  int Vbottom = 0;        // Voltage on the bottom plane in V 
+  int Vmesh = -DeltaV;    // Voltage on the mesh in V
   int Vtop = Vmesh - 250; // Voltage on the top plane in V
 
   // Create output file name
-  TString deltaV = Form("%d", DeltaV); // Voltage difference
-  TString penning = Form("%.2f", rPenning); // Penning transfer efficiency
-  TString ev = Form("%d", event); // Event number
-  TString Particle = "muon"; // Particle type (fixed to muon for this example)
+  TString deltaV = Form("%d", DeltaV);          // Voltage difference
+  TString penning = Form("%.2f", rPenning);     // Penning transfer efficiency
+  TString ev = Form("%d", event);               // Event number
+  TString Particle = "muon";                    // Particle type (fixed to muon for this example)
   TString fileName = "plots/prog_"+Particle+"_"+deltaV+"V_"+penning+"_"+ev+".root";
   TFile file(fileName, "RECREATE");
   std::cout << "Particle: " << "muon" << " DeltaV: " << deltaV << " V, Penning: " << penning << ", Event: " << event << "\n"
@@ -117,13 +117,13 @@ int main(int argc, char * argv[]) {
   // Drift region (top to mesh)
   ComponentAnalyticField driftRegion;
   driftRegion.SetMedium(&gas);
-  driftRegion.AddPlaneY(ytop, Vtop, "top");     // Top plane
+  driftRegion.AddPlaneY(ytop, Vtop, "top");      // Top plane
   driftRegion.AddPlaneY(ymesh, Vmesh, "mesh");   // Mesh plane
 
   // Amplification region (mesh to bottom)
   ComponentAnalyticField ampRegion;
   ampRegion.SetMedium(&gas);
-  ampRegion.AddPlaneY(ymesh, Vmesh, "mesh");   // Mesh plane
+  ampRegion.AddPlaneY(ymesh, Vmesh, "mesh");        // Mesh plane
   ampRegion.AddPlaneY(ybottom, Vbottom, "bottom");  // Bottom plane
 
   std::cout << "Vtop: " << Vtop << " V, Vmesh: " << Vmesh << " V, Vbottom: " << Vbottom << " V\n" 
@@ -134,8 +134,8 @@ int main(int argc, char * argv[]) {
   ampRegion.AddStripOnPlaneY('z', ybottom, -0.045, 0.045, "strip2", 0.015);
   ampRegion.AddStripOnPlaneY('z', ybottom, 0.06, 0.15, "strip3", 0.015);
   const double x1 = -(0.15 + 0.06)/2; // Center of strip1
-  const double x2 = 0.0;  // Center of strip2
-  const double x3 = -x1;  // Center of strip3
+  const double x2 = 0.0;              // Center of strip2
+  const double x3 = -x1;              // Center of strip3
 
   // Sensor
   Sensor sensor;
@@ -237,22 +237,22 @@ int main(int argc, char * argv[]) {
   for (const auto& cluster : track.GetClusters()) {
     xc = cluster.x; yc = cluster.y; zc = cluster.z;
     ec = cluster.energy; ne = cluster.electrons.size();
-    std::cout << "Cluster at (" << xc << ", " << yc << ", " << zc << ") with "
-              << ne << " electrons, energy " << ec << " eV.\n";
+    std::cout << "Cluster at (" << xc << ", " << yc << ", " << zc << ") with " << ne << " electrons, energy " << ec << " eV.\n";
 
     // Loop over the electrons in the cluster
     for (const auto& electron : cluster.electrons) {
+      /*
       avalanche = AvalancheMicroscopic();
       avalanche.SetSensor(&sensor);
       avalanche.EnableMagneticField(true);
       avalanche.EnableSignalCalculation(true);
+      */
 
       // Set the electron properties
       xe = electron.x; ye = electron.y; ze = electron.z;
       te = electron.t; ee = electron.e;
       dx = electron.dx; dy = electron.dy; dz = electron.dz;
-      std::cout << "    Electron at (" << xe << ", " << ye << ", " << ze << ") with "
-      << ee << " eV.\n";
+      std::cout << "    Electron at (" << xe << ", " << ye << ", " << ze << ") with " << ee << " eV.\n";
       avalanche.AvalancheElectron(xe, ye, ze, te, ee, dx, dy, dz);
 
       const auto& electrons = avalanche.GetElectrons();
@@ -272,8 +272,8 @@ int main(int argc, char * argv[]) {
         // Check if the electron is in the amplification region
         if (endpoint.y <= 0.01) {
           // Electron after the mesh
-          const double xafter = endpoint.x; const double yafter = endpoint.y; const double zafter = endpoint.z;  
-          const double tafter = endpoint.t; const double eafter = endpoint.energy;
+          const double xafter = endpoint.x;   const double yafter = endpoint.y; const double zafter = endpoint.z;  
+          const double tafter = endpoint.t;   const double eafter = endpoint.energy;
           const double dxafter = endpoint.kx; const double dyafter = endpoint.ky; const double dzafter = endpoint.kz;
         
           avalanche.AvalancheElectron(xafter, yafter, zafter, tafter, eafter, dxafter, dyafter, dzafter);
@@ -281,8 +281,7 @@ int main(int argc, char * argv[]) {
           // 2nd Avalanche size
           int nel2 = 0, ni2 = 0;
           avalanche.GetAvalancheSize(nel2, ni2);
-          std::cout << "        2nd Avalanche size: " << nel2 << " electrons, " << ni2
-                  << " ions.\n";
+          std::cout << "        2nd Avalanche size: " << nel2 << " electrons, " << ni2 << " ions.\n";
           nFinalElectrons += nel2; // Count final electrons after the avalanche
 
           // Drift ions in the amplification region
@@ -299,14 +298,15 @@ int main(int argc, char * argv[]) {
       }
     }   
   }
+
   // Print results
   std::cout << "Total number of ions: " << nTotal << std::endl;
   std::cout << "Number of back-flowing ions: " << nBF << std::endl;
-  std::cout << "Fraction of back-flowing ions: " 
-            << double(nBF) / double(nTotal) << "\n";
+  std::cout << "Fraction of back-flowing ions: " << double(nBF) / double(nTotal) << "\n";
   std::cout << "Number of primary electrons: " << nPrimaryElectrons << "\n";
   std::cout << "Number of final electrons after the avalanche: " << nFinalElectrons << "\n";
-  
+  std::cout << "Gain: " << double(nFinalElectrons) / double(nPrimaryElectrons) << "\n";  
+
   // Loop final time
   auto loopEnd = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> loopDuration = loopEnd - loopStart;
@@ -338,6 +338,7 @@ int main(int argc, char * argv[]) {
     // Update the canvases
     c->Update();
     czoom->Update();
+
     // Save the canvases
     SaveCanvasToFolder(c, "plots", "drift");
     SaveCanvasToFolder(czoom, "plots", "drift_zoom");
