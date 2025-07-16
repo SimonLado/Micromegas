@@ -28,7 +28,7 @@ echo PBS: PATH = $PBS_O_PATH
 echo ------------------------------------------------------
 
 #WORKDIR=/storage/DATA-01/ATLAS/LOCAL/Users/dinardo/RHUM_SIM/Amber_sim/build/jobs/
-WORKDIR=/storage/scratch/ladogana/results
+WORKDIR=/storage/scratch/ladogana
 
 cd ${WORKDIR}
 
