@@ -340,8 +340,8 @@ int main(int argc, char * argv[]) {
     czoom->Update();
 
     // Save the canvases
-    SaveCanvasToFolder(c, "plots", "drift");
-    SaveCanvasToFolder(czoom, "plots", "drift_zoom");
+    //SaveCanvasToFolder(c, "plots", "drift");
+    //SaveCanvasToFolder(czoom, "plots", "drift_zoom");
   }
 
 
@@ -363,9 +363,9 @@ int main(int argc, char * argv[]) {
       sensor.PlotSignal("strip3", cSignal3);
 
       // Update and save the canvases
-      cSignal1->Update(); SaveCanvasToFolder(cSignal1, "plots", "signal1");
-      cSignal2->Update(); SaveCanvasToFolder(cSignal2, "plots", "signal2");
-      cSignal3->Update(); SaveCanvasToFolder(cSignal3, "plots", "signal3");
+      //cSignal1->Update(); SaveCanvasToFolder(cSignal1, "plots", "signal1");
+      //cSignal2->Update(); SaveCanvasToFolder(cSignal2, "plots", "signal2");
+      //cSignal3->Update(); SaveCanvasToFolder(cSignal3, "plots", "signal3");
   }
 
   // Alternative signal plotting in 1 canvas with GetSignal
@@ -420,7 +420,7 @@ int main(int argc, char * argv[]) {
 
     cSignals->Update();
     // Save the canvas as a PNG file
-    SaveCanvasToFolder(cSignals, "plots", "signals");
+    //SaveCanvasToFolder(cSignals, "plots", "signals");
   }
   
   // Charge plotting with Integrate
@@ -444,9 +444,9 @@ int main(int argc, char * argv[]) {
     gSystem->ProcessEvents();
     //sensor.ExportSignal("strip3", "charge3");
 
-    SaveCanvasToFolder(cCharge1, "plots", "charge1");
-    SaveCanvasToFolder(cCharge2, "plots", "charge2");
-    SaveCanvasToFolder(cCharge3, "plots", "charge3");
+    //SaveCanvasToFolder(cCharge1, "plots", "charge1");
+    //SaveCanvasToFolder(cCharge2, "plots", "charge2");
+    //SaveCanvasToFolder(cCharge3, "plots", "charge3");
   }
   // End of plotting---------------------------------------------------------
   // Plot final time

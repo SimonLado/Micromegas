@@ -43,12 +43,16 @@ ls  /cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase
 #setupATLAS
 
 source /cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase/user/atlasLocalSetup.sh
-lsetup "views LCG_104 x86_64-centos7-gcc11-opt"
-source /storage/DATA-01/ATLAS/LOCAL/Users/dinardo/RHUM_SIM/garf_install/share/Garfield/setupGarfield.sh
+lsetup "views LCG_104 x86_64-el9-gcc13-opt"
+source /storage/DATA-01/ATLAS/LOCAL/Users/dinardo/RHUM_SIM_NEWG/garfield/install/share/Garfield/setupGarfield.sh
+
+#source /cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase/user/atlasLocalSetup.sh
+#lsetup "views LCG_104 x86_64-centos7-gcc11-opt"
+#source /storage/DATA-01/ATLAS/LOCAL/Users/dinardo/RHUM_SIM/garf_install/share/Garfield/setupGarfield.sh
 
 #/storage/DATA-01/ATLAS/LOCAL/Users/dinardo/RHUM_SIM/Amber_sim/build/./MM ${var1} ${var2} ${var3}
 
-/storage/DATA-01/ATLAS/LOCAL/Users/dinardo/RHUM_SIM/tesi_ladogana/build/./MM ${var1} ${var2} ${var3}
+/storage/DATA-01/ATLAS/LOCAL/Users/dinardo/RHUM_SIM_NEWG/tesi_ladogana/build/./MM ${var1} ${var2} ${var3}
 
 #cp mm.*${var1}*.root
 #/storage/DATA-01/ATLAS/LOCAL/Users/dinardo/RHUM_SIM/Amber_sim/build/jobs/
